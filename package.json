@@ -1,0 +1,37 @@
+{
+  "name": "rehype-partials",
+  "version": "1.0.0",
+  "description": "Partials support for rehype",
+  "main": "index.js",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrzmmr/rehype-partials.git"
+  },
+  "keywords": [
+    "rehype",
+    "unified",
+    "html",
+    "partials",
+    "templates"
+  ],
+  "author": "Paul Zimmer",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mrzmmr/rehype-partials/issues"
+  },
+  "homepage": "https://github.com/mrzmmr/rehype-partials#readme",
+  "devDependencies": {
+    "rehype-document": "^2.2.0",
+    "rehype-format": "^2.3.0",
+    "rehype-parse": "^5.0.0",
+    "rehype-stringify": "^4.0.0",
+    "to-vfile": "^5.0.1",
+    "vfile-reporter": "^5.0.0",
+    "unified": "^7.0.0"
+  },
+  "dependencies": {
+    "unist-util-visit": "^1.4.0"
+  }
+}
