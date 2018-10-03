@@ -1,150 +1,120 @@
-var visit = require('unist-util-visit')
-var join = require('path').join
-var fs = require('fs')
+var parser = require('rehype-parse')
+var unified = require('unified')
 
 module.exports = partials
 
 function partials (options) {
-  options = options || {}
-  var attachers
   var settings
-  var fragment
-  var parser
-  var parse
-  var self
+  var handle
 
-  self = this
-  attachers = self.attachers
-  parser = locate(attachers, 'parse')
-  settings = parser[1] || {}
-  parse = parser[0]
-  fragment = settings.fragment || false
+  options = options || {}
+  settings = this.data('settings')
+  settings = Object.assign({}, settings, options, {fragment: true})
+
+  try {
+    handle = settings.handler || require('fs').readFile
+  } catch (err) {}
 
   return transformer
 
-  function transformer (tree, file) {
-    visit (tree, 'text', function (node, index, parent) {
-      var children
-      var content
-      var matches
-      var offset
-      var child
-      var paths
-      var value
-      var path
-      var base
+  function transformer (tree, file, next) {
+    visit(tree, visitor, next)
+
+    function visit (node, visitor) {
+      var left = 0
+
+      function done (err, node, file) {
+        if (node) {
+          all(node)
+        }
+
+        left = left - 1
+
+        if (err || left < 1) {
+          next(err, node, file)
+        }
+      }
+
+      function one (node, index, parent) {
+        var result
+
+        left = left + 1
+
+        if (node.children) {
+          all(node)
+        }
+
+        result = visitor(node, index, parent, done)
+
+        if (result) {
+          done()
+        }
+      }
+
+      function all (node) {
+        for (var i = node.children.length - 1; i > -1; i--) {
+          one(node.children[i], i, node)
+        }
+      }
+
+      all(node)
+    }
+
+    function visitor (node, index, parent, done) {
+      var match
       var test
-      var i
 
-      value = node.value
-      children = parent.children
-      test = /\{\{\s+?(.*?)\}\}/
-      matches = value.match(RegExp(test, 'g'))
-
-      if (!matches) {
-        return
+      if (node.type !== 'comment') {
+        return true
       }
 
-      paths = format(matches, test, file.cwd)
+      test = /^include\s*href=['"](.*?)['"]\s*$/
+      match = test.exec(node.value)
 
-      if (!paths || !paths.length) {
-        return
+      if (!match) {
+        return true
       }
 
-      offset = index
-      i = -1
+      handle(match[1], handler)
 
-      while (++i < paths.length) {
-        path = paths[i][1]
-        base = paths[i][0]
-        file.history.push(base)
+      function handler (err, data) {
+        var processor
+        var children
+        var subfile
+        var subtree
 
-        if (!fragment) {
-          settings.fragment = true
-          parse.call(self, settings)
+        if (err) {
+          done(err)
         }
 
-        content = fs.readFileSync(path, 'utf-8')
-        child = self.Parser(content, file)
-        children.splice.apply(children, [offset, 0].concat(child.children))
-        offset += child.children.length
-        file.history.pop()
-      }
-
-      settings.fragment = fragment
-      parse.call(self, settings)
-      children.splice(offset, 1)
-    })
-  }
-}
-
-function locate (attachers, value) {
-  var attacher
-  var name
-  var i
-  var j
-
-  i = -1
-
-  while (++i < attachers.length) {
-    attacher = attachers[i]
-    j = -1
-
-    while (++j < attacher.length) {
-      name = funcName(attacher[j])
-
-      if (name && name === value) {
-        return attacher
-      }
-    }
-  }
-
-  return
-}
-
-function funcName (func) {
-  var match
-  var type
-  var test
-
-  type = typeof func === 'function'
-  test = /function ([^\(]+)/
-
-  if (type) {
-    match = test.exec(func.toString())
-
-    if (match) {
-      return match[1].trim()
-    }
-  }
-
-  return
-}
-
-function format (matches, test, cwd) {
-  var fullPath
-  var paths
-  var match
-  var i
-
-  paths = []
-  i = -1
-
-  while (++i < matches.length) {
-    if (matches[i]) {
-      match = matches[i].match(test)
-
-      if (match) {
-        path = match[1].trim()
-
-        if (path.indexOf('partial') === 0) {
-          path = path.replace('partial', '').trim()
-          fullPath = join(cwd, path)
-          paths.push([path, fullPath])
+        subfile = {
+          messages: [],
+          contents: trim(String(data)),
+          history: [match[1]]
         }
+
+        processor = unified().use(parser, settings)
+        subtree = processor().parse(subfile)
+        children = parent.children
+
+        processor().run(subtree, subfile, function (err, child, childfile) {
+          if (err) {
+            done(err)
+          }
+
+          if (settings.messages) {
+            file.messages = file.messages.concat(childfile.messages)
+          }
+
+          children.splice.apply(children, [index, 1].concat(child.children))
+          done(err, tree, file)
+        })
       }
     }
   }
 
-  return paths.length ? paths : null
+  function trim (string) {
+    return string.replace(/\n*/, '').trim()
+  }
 }
+
