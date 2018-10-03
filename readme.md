@@ -11,26 +11,25 @@ With the following html,
 ##### index.html
 
 ```html
-<div>
-  {{ partial ./partials/hello.html }}
-  {{ partial ./partials/world.html }}
+<div class='container'>
+  <!--include href='./hello.html' -->
 </div>
 ```
 
 ##### ./partials/hello.html
 
 ```html
-<header>
-  <h1 class='foo'>Hello</h1>
-</header>
+<div class='hello'>
+  <!--include href='./world.html' -->
+</div>
 ```
 
 ##### ./partials/world.html
 
 ```html
-<main>
-  <h2 class='bar'>World!</h2>
-</main>
+<div class='world'>
+  <p>world</p>
+</div>
 ```
 
 and the following js,
@@ -38,20 +37,14 @@ and the following js,
 ##### index.js
 
 ```js
-var unified = require('unified')
-var parse = require('rehype-parse')
-var format = require('rehype-format')
-var document = require('rehype-document')
-var stringify = require('rehype-stringify')
 var reporter = require('vfile-reporter')
-var toVfile = require('to-vfile')
-var partials = require('../')
+var format = require('rehype-format')
+var vfile = require('to-vfile')
+var rehype = require('rehype')
+var partials = require('rehype-partials')
 
-unified()
-  .use(parse, { fragment: true })
-  .use(stringify)
+rehype()
   .use(partials)
-  .use(document, { title: 'Example' })
   .use(format)
   .process(toVfile.readSync('./index.html'), function (err, file) {
     console.error(reporter(err || file))
@@ -63,21 +56,18 @@ will output:
 
 ```
 ./index.html: no issues found
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Example</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-  </head>
+```
+
+```html
+<html>
+  <head></head>
   <body>
-    <div>
-      <header>
-        <h1 class="foo">Hello</h1>
-      </header>
-      <main>
-        <h2>World</h2>
-      </main>
+    <div class="container">
+      <div class="hello">
+        <div class="world">
+          <p>world</p>
+        </div>
+      </div>
     </div>
   </body>
 </html>
@@ -86,3 +76,4 @@ will output:
 ## License
 
 MIT © Paul Zimmer
+
