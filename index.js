@@ -1,15 +1,24 @@
 var parser = require('rehype-parse')
 var unified = require('unified')
+var { join } = require('path')
 
 module.exports = partials
 
 function partials (options) {
   var settings
   var handle
+  var max
 
   options = options || {}
   settings = this.data('settings')
   settings = Object.assign({}, settings, options, {fragment: true})
+  max = options.max
+
+  if (max || max === 0) {
+    max = max - 2
+  } else {
+    max = -1
+  }
 
   try {
     handle = settings.handler || require('fs').readFile
@@ -21,11 +30,13 @@ function partials (options) {
     visit(tree, visitor, next)
 
     function visit (node, visitor) {
+      var count = max
       var left = 0
 
       function done (err, node, file) {
-        if (node) {
+        if (node && count >= 0) {
           all(node)
+          count = count - 1
         }
 
         left = left - 1
@@ -61,8 +72,11 @@ function partials (options) {
     }
 
     function visitor (node, index, parent, done) {
+      var dirname
       var match
       var test
+      var path
+      var cwd
 
       if (node.type !== 'comment') {
         return true
@@ -75,7 +89,11 @@ function partials (options) {
         return true
       }
 
-      handle(match[1], handler)
+      cwd = file.cwd || ''
+      dirname = file.dirname || ''
+      path = join(cwd, dirname, match[1])
+
+      handle(path, handler)
 
       function handler (err, data) {
         var processor
@@ -83,14 +101,15 @@ function partials (options) {
         var subfile
         var subtree
 
+        /* istanbul ignore next ; hard to test */
         if (err) {
           done(err)
         }
 
         subfile = {
+          path: path,
           messages: [],
           contents: trim(String(data)),
-          history: [match[1]]
         }
 
         processor = unified().use(parser, settings)
@@ -98,6 +117,7 @@ function partials (options) {
         children = parent.children
 
         processor().run(subtree, subfile, function (err, child, childfile) {
+          /* istanbul ignore next ; hard to test */
           if (err) {
             done(err)
           }
