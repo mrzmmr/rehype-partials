@@ -11,7 +11,7 @@ const partials = require('../')
 const readdir = fs.readdirSync
 const read = fs.readFileSync
 
-test('Partials()', t => {
+test('Partials()', async t => {
   t.doesNotThrow(() => {
     return unified()
       .use(parser)
@@ -27,6 +27,16 @@ test('Partials()', t => {
       .use(partials, { max: 10 })
       .freeze()
   }, 'Should not throw with options')
+
+  await unified()
+    .use(parser, { fragment: true })
+    .use(stringify)
+    .use(partials)
+    .process('<p><!--include href="fixtures/simple/span.html" --></p>')
+    .then(file => {
+      t.equal(file.toString(), '<p><span></span></p>')
+    })
+    .catch(t.threw)
   t.end()
 })
 
