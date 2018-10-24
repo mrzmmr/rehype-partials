@@ -89,7 +89,7 @@ function partials (options) {
         return true
       }
 
-      cwd = file.cwd || ''
+      cwd = file.cwd
       dirname = file.dirname || ''
       path = join(cwd, dirname, match[1])
 
