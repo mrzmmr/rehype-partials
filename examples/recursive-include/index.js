@@ -5,15 +5,17 @@ var format = require('rehype-format')
 var vfile = require('to-vfile')
 var partials = require('../../')
 
-unified()
-  .use(parser)
-  .use(stringify)
-  .use(partials, { max: 2 })
-  .use(format)
-  .process(vfile.readSync('./index.html'), (err, file) => {
-    if (err) {
-      throw err
-    }
+var reporter = require('vfile-reporter')
+var format = require('rehype-format')
+var vfile = require('to-vfile')
+var rehype = require('rehype')
+var partials = require('../../')
 
-    console.log(String(file))
-  })
+rehype()
+    .use(partials, {max: 2})
+    .use(format)
+    .process(vfile.readSync('./index.html'), (err, file) => {
+        console.error(reporter(err || file))
+        console.log(String(file))
+    })
+
