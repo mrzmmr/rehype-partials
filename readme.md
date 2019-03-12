@@ -1,5 +1,7 @@
 # rehype-partials
 
+[![Coverage Status](https://coveralls.io/repos/github/mrzmmr/rehype-partials/badge.svg?branch=master)](https://coveralls.io/github/mrzmmr/rehype-partials?branch=master)
+
 Partials support for rehype.
 
 **WIP:** This is very much a work in progress
