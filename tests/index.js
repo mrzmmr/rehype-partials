@@ -32,7 +32,7 @@ test('Partials()', async t => {
     .use(parser, { fragment: true })
     .use(stringify)
     .use(partials)
-    .process('<p><!--include href="fixtures/simple/span.html" --></p>')
+    .process('<p><!--include href="tests/fixtures/simple/span.html" --></p>')
     .then(file => {
       t.equal(file.toString(), '<p><span></span></p>')
     })
@@ -62,7 +62,7 @@ test('Fixtures:', async t => {
     fixture = fixtures[i]
     settings = {}
 
-    path = join('./fixtures', fixture)
+    path = join('tests/fixtures', fixture)
     start = await vfile.read(join(path, 'start.html'))
     end = await vfile.read(join(path, 'end.html'))
     files = readdir(path)
