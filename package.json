@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "tap -Rspec --cov tests/index.js",
+    "lint": "xo --fix",
     "report": "nyc report --reporter=text-lcov | coveralls"
   },
   "repository": {
@@ -33,6 +34,6 @@
     "rehype-format": "^2.3.1",
     "rehype-stringify": "^5.0.0",
     "tap": "^12.6.0",
-    "to-vfile": "^5.0.2"
+    "xo": "^0.24.0"
   }
 }
