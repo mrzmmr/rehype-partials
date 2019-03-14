@@ -1,14 +1,14 @@
-var rehype = require('rehype')
-var vfile = require('to-vfile')
-var format = require('rehype-format')
-var reporter = require('vfile-reporter')
-var partials = require('../../')
+const rehype = require('rehype');
+const vfile = require('to-vfile');
+const format = require('rehype-format');
+const reporter = require('vfile-reporter');
+const partials = require('../..');
 
 rehype()
-  .use(partials)
-  .use(format)
-  .data('settings', {emitParseErrors: true})
-  .process(vfile.readSync('index.html'), (err, file) => {
-    console.error(reporter(err || file))
-    console.log(String(file))
-  })
+	.use(partials)
+	.use(format)
+	.data('settings', {emitParseErrors: true})
+	.process(vfile.readSync('index.html'), (err, file) => {
+		console.error(reporter(err || file));
+		console.log(String(file));
+	});
