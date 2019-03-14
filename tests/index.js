@@ -1,96 +1,79 @@
-const unified = require('unified')
-const parser = require('rehype-parse')
-const format = require('rehype-format')
-const stringify = require('rehype-stringify')
-const vfile = require('to-vfile')
-const { join } = require('path')
-const { test } = require('tap')
-const fs = require('fs')
-const partials = require('../')
 
-const readdir = fs.readdirSync
-const read = fs.readFileSync
+const {readdirSync, readFileSync} = require('fs');
+const {join} = require('path');
+const unified = require('unified');
+const stringify = require('rehype-stringify');
+const format = require('rehype-format');
+const parse = require('rehype-parse');
+const tap = require('tap');
+const partials = require('..');
 
-test('Partials()', async t => {
-  t.doesNotThrow(() => {
-    return unified()
-      .use(parser)
-      .use(stringify)
-      .use(partials)
-      .freeze()
-  }, 'Should not throw with no options')
+tap.test('rejects', t => {
+	t.plan(4);
 
-  t.doesNotThrow(() => {
-    return unified()
-      .use(parser)
-      .use(stringify)
-      .use(partials, { max: 10 })
-      .freeze()
-  }, 'Should not throw with options')
+	t.doesNotThrow(unified()
+		.use(parse)
+		.use(stringify)
+		.use(partials)
+		.freeze(),
+	'should not throw with no options.'
+	);
 
-  await unified()
-    .use(parser, { fragment: true })
-    .use(stringify)
-    .use(partials)
-    .process('<p><!--include href="tests/fixtures/simple/span.html" --></p>')
-    .then(file => {
-      t.equal(file.toString(), '<p><span></span></p>')
-    })
-    .catch(t.threw)
-  t.end()
-})
+	t.doesNotThrow(unified()
+		.use(parse)
+		.use(stringify)
+		.use(partials, {max: 1, cwd: './', messages: true})
+		.freeze(),
+	'should not throw with options.'
+	);
 
-test('Fixtures:', async t => {
-  let fixtures
-  let base
-  let i
+	t.rejects(unified()
+		.use(parse)
+		.use(stringify)
+		.use(partials, {handle: (_, f) => f(new Error('rejected'))})
+		.process('<p><!--include href="span.html"--></p>'),
+	'should reject if handle throws.'
+	);
 
-  base = join(__dirname, 'fixtures')
-  fixtures = readdir(base)
-  i = -1
+	t.rejects(unified()
+		.use(parse)
+		.use(stringify)
+		.use(partials)
+		.process('<p><!--include href="span.html"--></p>'),
+	'should reject if no such file or directory.'
+	);
+});
 
-  while (++i < fixtures.length) {
-    let settings
-    let fixture
-    let wanted
-    let found
-    let start
-    let files
-    let path
-    let end
+tap.test('fixtures', t => {
+	const base = join(__dirname, 'fixtures');
+	const fixtures = readdirSync(base);
 
-    fixture = fixtures[i]
-    settings = {}
+	t.plan(fixtures.length);
 
-    path = join('tests/fixtures', fixture)
-    start = await vfile.read(join(path, 'start.html'))
-    end = await vfile.read(join(path, 'end.html'))
-    files = readdir(path)
+	fixtures.forEach(each);
 
-    if (files.indexOf('settings.json') > -1) {
-      settings = read(join(path, 'settings.json'))
-      settings = JSON.parse(settings)
-    }
+	function each(fixture) {
+		const path = join(base, fixture);
+		const start = readFileSync(join(path, 'start.html'));
+		const expected = readFileSync(join(path, 'expected.html'));
+		let settings = {};
 
-    ({found, wanted} = await run(start, end, settings))
-    t.equal(found.toString(), wanted.toString(), fixture)
-  }
-  t.end()
-})
+		try {
+			settings = JSON.parse(readFileSync(join(path, 'settings.json')));
+		} catch (error) {}
 
-async function run (start, end, settings) {
-  const found = await unified()
-    .use(parser)
-    .use(stringify)
-    .use(partials, settings)
-    .use(format)
-    .process(start)
+		settings.cwd = path;
 
-  const wanted = await unified()
-    .use(parser)
-    .use(stringify)
-    .use(format)
-    .process(end)
-
-  return { found, wanted }
-}
+		unified()
+			.use(parse, settings)
+			.use(stringify)
+			.use(partials, settings)
+			.use(format)
+			.process(start, (error, file) => {
+				t.test(fixture, t => {
+					t.plan(1);
+					t.equal(String(expected), String(file), 'should be equal.');
+				});
+			});
+	}
+});
