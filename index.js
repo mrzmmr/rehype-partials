@@ -1,140 +1,144 @@
-var parser = require('rehype-parse')
-var unified = require('unified')
-var { join } = require('path')
+const {join, dirname} = require('path');
+const parse = require('rehype-parse');
+const unified = require('unified');
 
-module.exports = partials
+const {assign} = Object;
 
-function partials (options) {
-  var settings
-  var handle
-  var max
+module.exports = partials;
 
-  options = options || {}
-  settings = this.data('settings')
-  settings = Object.assign({}, settings, options, {fragment: true})
-  max = options.max
+function partials(options = {}) {
+	let handle;
+	let tree;
+	let file;
 
-  if (max || max === 0) {
-    max = max - 2
-  } else {
-    max = -1
-  }
+	const settings = assign(
+		{},
+		this.data('settings'),
+		options,
+		{fragment: true}
+	);
 
-  try {
-    handle = settings.handler || require('fs').readFile
-  } catch (err) {}
+	if (settings.max || settings.max === 0) {
+		settings.max -= 2;
+	} else {
+		settings.max = -1;
+	}
 
-  return transformer
+	try {
+		handle = settings.handle || require('fs').readFile;
+	} catch (error) {}
 
-  function transformer (tree, file, next) {
-    visit(tree, visitor, next)
+	return (_tree, _file, next) => {
+		tree = _tree;
+		file = _file;
 
-    function visit (node, visitor) {
-      var count = max
-      var left = 0
+		visit(tree, next, visitor);
+	};
 
-      function done (err, node, file) {
-        if (node && count >= 0) {
-          all(node)
-          count = count - 1
-        }
+	function visitor(node, index, parent, done) {
+		if (node.type !== 'comment') {
+			return true;
+		}
 
-        left = left - 1
+		const match = node.value.match(
+			/^include\s*href=['"](.*?)['"]\s*$/
+		);
 
-        if (err || left < 1) {
-          next(err, node, file)
-        }
-      }
+		if (!match) {
+			return true;
+		}
 
-      function one (node, index, parent) {
-        var result
+		let filename;
 
-        left = left + 1
+		/* istanbul ignore next ; hard to test */
+		try {
+			({parent: {filename} = {}} = module);
+		} catch (error) {
+			filename = '';
+		}
 
-        if (node.children) {
-          all(node)
-        }
+		const path = settings.cwd ?
+			join(settings.cwd, match[1]) :
+			join(dirname(filename), match[1]);
 
-        result = visitor(node, index, parent, done)
+		handle(path, (error, data) => {
+			if (error) {
+				done(error);
+			}
 
-        if (result) {
-          done()
-        }
-      }
+			const processor = unified()
+				.use(parse, settings);
 
-      function all (node) {
-        for (var i = node.children.length - 1; i > -1; i--) {
-          one(node.children[i], i, node)
-        }
-      }
+			const subfile = {
+				path,
+				messages: [],
+				contents: trim(String(data))
+			};
 
-      all(node)
-    }
+			const subtree = processor()
+				.parse(subfile);
 
-    function visitor (node, index, parent, done) {
-      var dirname
-      var match
-      var test
-      var path
-      var cwd
+			const {children} = parent;
 
-      if (node.type !== 'comment') {
-        return true
-      }
+			processor().run(subtree, subfile, (error, child, childFile) => {
+				/* istanbul ignore next ; hard to test */
+				if (error) {
+					done(error);
+				}
 
-      test = /^include\s*href=['"](.*?)['"]\s*$/
-      match = test.exec(node.value)
+				if (settings.messages) {
+					file.messages = file.messages.concat(childFile.messages);
+				}
 
-      if (!match) {
-        return true
-      }
+				children.splice(...[index, 1].concat(child.children));
 
-      cwd = file.cwd
-      dirname = file.dirname || ''
-      path = join(cwd, dirname, match[1])
+				done(error, tree, file);
+			});
+		});
+	}
 
-      handle(path, handler)
+	function visit(tree, next, visitor) {
+		let count = settings.max;
+		let left = 0;
 
-      function handler (err, data) {
-        var processor
-        var children
-        var subfile
-        var subtree
+		one(tree);
 
-        /* istanbul ignore next ; hard to test */
-        if (err) {
-          done(err)
-        }
+		function done(error, node, file) {
+			if (node && count >= 0) {
+				all(node);
 
-        subfile = {
-          path: path,
-          messages: [],
-          contents: trim(String(data)),
-        }
+				count -= 1;
+			}
 
-        processor = unified().use(parser, settings)
-        subtree = processor().parse(subfile)
-        children = parent.children
+			left -= 1;
 
-        processor().run(subtree, subfile, function (err, child, childfile) {
-          /* istanbul ignore next ; hard to test */
-          if (err) {
-            done(err)
-          }
+			if (error || left === 0) {
+				next(error, node, file);
+			}
+		}
 
-          if (settings.messages) {
-            file.messages = file.messages.concat(childfile.messages)
-          }
+		function one(node, index, parent) {
+			left += 1;
 
-          children.splice.apply(children, [index, 1].concat(child.children))
-          done(err, tree, file)
-        })
-      }
-    }
-  }
+			if (node.children) {
+				all(node);
+			}
 
-  function trim (string) {
-    return string.replace(/\n*/, '').trim()
-  }
+			const result = visitor(node, index, parent, done);
+
+			if (result) {
+				done();
+			}
+		}
+
+		function all(node) {
+			node.children.forEach((child, index) => (
+				one(child, index, node)
+			));
+		}
+	}
+
+	function trim(string) {
+		return string.replace(/\n*/, '').trim();
+	}
 }
-
