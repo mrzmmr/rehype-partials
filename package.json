@@ -1,39 +1,42 @@
 {
-  "name": "rehype-partials",
-  "version": "1.0.0",
-  "description": "Partials support for rehype",
-  "main": "index.js",
-  "scripts": {
-    "test": "tap -Rspec --cov tests/index.js",
-    "lint": "xo --fix",
-    "report": "nyc report --reporter=text-lcov | coveralls"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mrzmmr/rehype-partials.git"
-  },
-  "keywords": [
-    "rehype",
-    "unified",
-    "html",
-    "partials",
-    "templates"
-  ],
-  "author": "Paul Zimmer",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/mrzmmr/rehype-partials/issues"
-  },
-  "homepage": "https://github.com/mrzmmr/rehype-partials#readme",
-  "dependencies": {
-    "rehype-parse": "^6.0.0",
-    "unified": "^7.1.0"
-  },
-  "devDependencies": {
-    "coveralls": "^3.0.3",
-    "rehype-format": "^2.3.1",
-    "rehype-stringify": "^5.0.0",
-    "tap": "^12.6.0",
-    "xo": "^0.24.0"
-  }
+	"name": "rehype-partials",
+	"version": "1.0.0",
+	"description": "Partials support for rehype",
+	"main": "index.js",
+	"engines": {
+		"node": ">=6"
+	},
+	"scripts": {
+		"lint": "xo --fix",
+		"test": "tap -Rspec --cov tests/index.js",
+		"report": "nyc report --reporter=text-lcov | coveralls"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mrzmmr/rehype-partials.git"
+	},
+	"keywords": [
+		"rehype",
+		"unified",
+		"html",
+		"partials",
+		"templates"
+	],
+	"author": "Paul Zimmer",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/mrzmmr/rehype-partials/issues"
+	},
+	"homepage": "https://github.com/mrzmmr/rehype-partials#readme",
+	"dependencies": {
+		"rehype-parse": "^6.0.0",
+		"unified": "^7.1.0"
+	},
+	"devDependencies": {
+		"coveralls": "^3.0.3",
+		"rehype": "^7.0.0",
+		"rehype-format": "^2.3.1",
+		"tap": "^12.6.0",
+		"xo": "^0.24.0"
+	}
 }
