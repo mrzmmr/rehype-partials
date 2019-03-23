@@ -1,27 +1,27 @@
-const fetch = require('isomorphic-unfetch');
-const reporter = require('vfile-reporter');
-const format = require('rehype-format');
-const vfile = require('to-vfile');
+const {readFileSync} = require('fs');
 const rehype = require('rehype');
-
+const format = require('rehype-format');
+const report = require('vfile-reporter');
+const fetch = require('isomorphic-unfetch');
 const partials = require('../..');
 
-function get(path, callback) {
-	return (async path => {
-		try {
-			const res = await (await fetch(path)).text();
-			callback(null, res);
-		} catch (error) {
-			callback(error);
-		}
-	})(path);
+function handle(path, callback) {
+	return fetch(path)
+		.then(result => result.text())
+		.then(result => callback(null, result))
+		.catch(error => callback(error));
 }
 
 rehype()
-	.data('settings', {emitParseErrors: true})
-	.use(partials, {handle: get, messages: true})
+	.data('settings', {
+		emitParseErrors: true,
+		noresolve: true,
+		fatal: true,
+		handle
+	})
+	.use(partials)
 	.use(format)
-	.process(vfile.readSync('./index.html'), (err, file) => {
-		console.error(reporter(err || file));
+	.process(readFileSync('./index.html'), (error, file) => {
+		console.error(report(error || file));
 		console.log(String(file));
 	});
