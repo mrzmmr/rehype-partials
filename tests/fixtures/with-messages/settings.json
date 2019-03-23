@@ -1,4 +1,3 @@
 {
-  "emitParseErrors": true,
-  "messages": true
+	"emitParseErrors": true
 }

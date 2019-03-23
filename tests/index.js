@@ -1,79 +1,94 @@
-
 const {readdirSync, readFileSync} = require('fs');
 const {join} = require('path');
-const unified = require('unified');
-const stringify = require('rehype-stringify');
+const {test} = require('tap');
+const rehype = require('rehype');
 const format = require('rehype-format');
-const parse = require('rehype-parse');
-const tap = require('tap');
 const partials = require('..');
 
-tap.test('rejects', t => {
-	t.plan(4);
-
-	t.doesNotThrow(unified()
-		.use(parse)
-		.use(stringify)
-		.use(partials)
-		.freeze(),
-	'should not throw with no options.'
-	);
-
-	t.doesNotThrow(unified()
-		.use(parse)
-		.use(stringify)
-		.use(partials, {max: 1, cwd: './', messages: true})
-		.freeze(),
-	'should not throw with options.'
-	);
-
-	t.rejects(unified()
-		.use(parse)
-		.use(stringify)
-		.use(partials, {handle: (_, f) => f(new Error('rejected'))})
-		.process('<p><!--include href="span.html"--></p>'),
-	'should reject if handle throws.'
-	);
-
-	t.rejects(unified()
-		.use(parse)
-		.use(stringify)
-		.use(partials)
-		.process('<p><!--include href="span.html"--></p>'),
-	'should reject if no such file or directory.'
-	);
-});
-
-tap.test('fixtures', t => {
+test('partials', t => {
 	const base = join(__dirname, 'fixtures');
 	const fixtures = readdirSync(base);
+	const withoutPartial = '<div></div>';
+	const withComment = '<div><!-- comment --></div>';
+	const withPartial = '<div><!-- href="div.html" --></div>';
 
-	t.plan(fixtures.length);
+	t.plan(11 + fixtures.length);
 
-	fixtures.forEach(each);
+	t.resolves(rehype()
+		.use(partials)
+		.process(withoutPartial),
+	'should resolve without partial comment.');
 
-	function each(fixture) {
+	t.resolves(rehype()
+		.use(partials)
+		.process(withComment),
+	'should resolve with non partial comment.');
+
+	t.resolves(rehype()
+		.use(partials)
+		.process(withPartial)
+		.then(file => t.equal(file.messages.length, 1)),
+	'should resolve with message if `fatal` is false.');
+
+	t.resolves(rehype()
+		.use(partials, {messages: false})
+		.process(withPartial)
+		.then(file => t.equal(file.messages.length, 0)),
+	'should resolve with no messages if `messages` is false.');
+
+	t.resolves(rehype()
+		.use(partials, {handle: (_, f) => f(new Error('failed'))})
+		.process(withPartial)
+		.then(file => t.equal(file.messages.length, 1)),
+	'should resolve with message with custom `handle`.');
+
+	t.resolves(rehype()
+		.use(partials)
+		.data('settings', {
+			fatal: true,
+			handle: (_, f) => f(new Error('rejects'))
+		})
+		.process(withPartial)
+		.then(
+			t.fail,
+			t.pass
+		),
+	'should reject with custom `handle` when `fatal` is true.');
+
+	t.rejects(rehype()
+		.use(partials, {fatal: true})
+		.process(withPartial),
+	'should reject when fatal is `true`.');
+
+	fixtures.forEach(fixture => {
 		const path = join(base, fixture);
 		const start = readFileSync(join(path, 'start.html'));
 		const expected = readFileSync(join(path, 'expected.html'));
 		let settings = {};
 
 		try {
-			settings = JSON.parse(readFileSync(join(path, 'settings.json')));
+			settings = JSON.parse(
+				readFileSync(join(path, 'settings.json'))
+			);
 		} catch (error) {}
 
 		settings.cwd = path;
 
-		unified()
-			.use(parse, settings)
-			.use(stringify)
-			.use(partials, settings)
-			.use(format)
-			.process(start, (error, file) => {
-				t.test(fixture, t => {
-					t.plan(1);
-					t.equal(String(expected), String(file), 'should be equal.');
+		t.test(fixture, t => {
+			t.plan(2);
+
+			rehype()
+				.data('settings', settings)
+				.use(partials)
+				.use(format)
+				.process(start, (error, file) => {
+					t.error(error);
+					t.equal(
+						String(file),
+						String(expected),
+						'should be equal.'
+					);
 				});
-			});
-	}
+		});
+	});
 });

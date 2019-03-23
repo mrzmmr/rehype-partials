@@ -1,144 +1,171 @@
-const {join, dirname} = require('path');
-const parse = require('rehype-parse');
+const path = require('path');
 const unified = require('unified');
-
-const {assign} = Object;
+const parse = require('rehype-parse');
 
 module.exports = partials;
 
 function partials(options = {}) {
-	let handle;
+	let pathsList = [];
+	let left = 0;
 	let tree;
 	let file;
+	let next;
 
-	const settings = assign(
-		{},
-		this.data('settings'),
+	const defaultOptions = {
+		max: 1,
+		cwd: '',
+		handle: null,
+		messages: true,
+		noresolve: false
+	};
+
+	const data = this.data('settings') || {};
+
+	const settings = Object.assign(
+		defaultOptions,
+		data,
 		options,
 		{fragment: true}
 	);
 
-	if (settings.max || settings.max === 0) {
-		settings.max -= 2;
-	} else {
-		settings.max = -1;
-	}
+	const processor = unified().use(parse, settings);
 
-	try {
-		handle = settings.handle || require('fs').readFile;
-	} catch (error) {}
+	return transformer;
 
-	return (_tree, _file, next) => {
+	function transformer(_tree, _file, _next) {
 		tree = _tree;
 		file = _file;
+		next = _next;
 
-		visit(tree, next, visitor);
-	};
-
-	function visitor(node, index, parent, done) {
-		if (node.type !== 'comment') {
-			return true;
-		}
-
-		const match = node.value.match(
-			/^include\s*href=['"](.*?)['"]\s*$/
-		);
-
-		if (!match) {
-			return true;
-		}
-
-		let filename;
-
-		/* istanbul ignore next ; hard to test */
+		/* istanbul ignore next */
 		try {
-			({parent: {filename} = {}} = module);
+			const {handle} = settings;
+			settings.handle = handle || require('fs').readFile;
 		} catch (error) {
-			filename = '';
+			return next(error);
 		}
 
-		const path = settings.cwd ?
-			join(settings.cwd, match[1]) :
-			join(dirname(filename), match[1]);
+		return each(tree);
+	}
 
-		handle(path, (error, data) => {
-			if (error) {
-				done(error);
+	function each(node, parent, dirname = '') {
+		left += 1;
+
+		return handle(node, parent, dirname, () => {
+			if (!node.children) {
+				return done();
 			}
 
-			const processor = unified()
-				.use(parse, settings);
+			for (const child of node.children) {
+				each(child, node, dirname);
+			}
 
-			const subfile = {
-				path,
-				messages: [],
-				contents: trim(String(data))
-			};
-
-			const subtree = processor()
-				.parse(subfile);
-
-			const {children} = parent;
-
-			processor().run(subtree, subfile, (error, child, childFile) => {
-				/* istanbul ignore next ; hard to test */
-				if (error) {
-					done(error);
-				}
-
-				if (settings.messages) {
-					file.messages = file.messages.concat(childFile.messages);
-				}
-
-				children.splice(...[index, 1].concat(child.children));
-
-				done(error, tree, file);
-			});
+			return done();
 		});
 	}
 
-	function visit(tree, next, visitor) {
-		let count = settings.max;
-		let left = 0;
+	function done() {
+		left -= 1;
 
-		one(tree);
-
-		function done(error, node, file) {
-			if (node && count >= 0) {
-				all(node);
-
-				count -= 1;
-			}
-
-			left -= 1;
-
-			if (error || left === 0) {
-				next(error, node, file);
-			}
-		}
-
-		function one(node, index, parent) {
-			left += 1;
-
-			if (node.children) {
-				all(node);
-			}
-
-			const result = visitor(node, index, parent, done);
-
-			if (result) {
-				done();
-			}
-		}
-
-		function all(node) {
-			node.children.forEach((child, index) => (
-				one(child, index, node)
-			));
+		if (left < 1) {
+			return next(null, tree, file);
 		}
 	}
 
-	function trim(string) {
-		return string.replace(/\n*/, '').trim();
+	function handle(node, parent, dirname, callback) {
+		if (node.type !== 'comment') {
+			return callback();
+		}
+
+		const current = handlePath(node, dirname);
+
+		if (!current) {
+			return callback();
+		}
+
+		return settings.handle(current, (error, data) => {
+			if (error) {
+				return handleError(error, node, callback);
+			}
+
+			const subtree = handlePartial(current, data);
+			const index = parent.children.indexOf(node);
+
+			parent.children.splice(
+				...[index, 1].concat(subtree.children)
+			);
+
+			each(subtree, node, path.dirname(current));
+
+			return callback();
+		});
+	}
+
+	function handleError(error, node, callback) {
+		if (settings.fatal) {
+			return next(error);
+		}
+
+		if (settings.messages) {
+			file.message(
+				error.message,
+				node.position,
+				'partials:' + error.code
+			);
+		}
+
+		return callback();
+	}
+
+	function handlePartial(path, data) {
+		const subfile = {
+			path,
+			messages: [],
+			contents: String(data).trim()
+		};
+
+		const subtree = processor()
+			.parse(subfile);
+
+		if (settings.messages) {
+			file.messages = file.messages.concat(subfile.messages);
+		}
+
+		return subtree;
+	}
+
+	function handlePath(node, dirname) {
+		const match = node.value.match(
+			/^\s*href=['"](.*)['"]\s*$/
+		);
+
+		if (!match) {
+			return;
+		}
+
+		let current;
+
+		if (settings.noresolve) {
+			current = match[1];
+		} else {
+			current = path.resolve(
+				settings.cwd,
+				dirname,
+				match[1]
+			);
+		}
+
+		pathsList.push(current);
+
+		if (occurs(current, pathsList) > settings.max) {
+			pathsList = [];
+			return;
+		}
+
+		return current;
+	}
+
+	function occurs(path, pathsList) {
+		return pathsList.filter(item => item === path).length;
 	}
 }
