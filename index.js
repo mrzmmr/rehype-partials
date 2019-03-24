@@ -5,7 +5,6 @@ const parse = require('rehype-parse');
 module.exports = partials;
 
 function partials(options = {}) {
-	let pathsList = [];
 	let left = 0;
 	let tree;
 	let file;
@@ -48,16 +47,16 @@ function partials(options = {}) {
 		return each(tree);
 	}
 
-	function each(node, parent, dirname = '') {
+	function each(node, parent, dirname = '', list = []) {
 		left += 1;
 
-		return handle(node, parent, dirname, () => {
+		return handle(node, parent, dirname, list, () => {
 			if (!node.children) {
 				return done();
 			}
 
 			for (const child of node.children) {
-				each(child, node, dirname);
+				each(child, node, dirname, [...list]);
 			}
 
 			return done();
@@ -72,7 +71,7 @@ function partials(options = {}) {
 		}
 	}
 
-	function handle(node, parent, dirname, callback) {
+	function handle(node, parent, dirname, list, callback) {
 		if (node.type !== 'comment') {
 			return callback();
 		}
@@ -81,6 +80,12 @@ function partials(options = {}) {
 
 		if (!current) {
 			return callback();
+		}
+
+		list.push(current)
+
+		if (occurs(current, list) > settings.max) {
+			return callback()
 		}
 
 		return settings.handle(current, (error, data) => {
@@ -95,7 +100,7 @@ function partials(options = {}) {
 				...[index, 1].concat(subtree.children)
 			);
 
-			each(subtree, node, path.dirname(current));
+			each(subtree, node, path.dirname(current), list);
 
 			return callback();
 		});
@@ -153,13 +158,6 @@ function partials(options = {}) {
 				dirname,
 				match[1]
 			);
-		}
-
-		pathsList.push(current);
-
-		if (occurs(current, pathsList) > settings.max) {
-			pathsList = [];
-			return;
 		}
 
 		return current;
