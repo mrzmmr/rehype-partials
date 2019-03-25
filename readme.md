@@ -1,12 +1,11 @@
 # rehype-partials
 
+[![Build Status](https://travis-ci.org/mrzmmr/rehype-partials.svg?branch=master)](https://travis-ci.org/mrzmmr/rehype-partials)
 [![Coverage Status](https://coveralls.io/repos/github/mrzmmr/rehype-partials/badge.svg?branch=master)](https://coveralls.io/github/mrzmmr/rehype-partials?branch=master)
 
-Partials support for rehype.
+Partials support for [rehype].
 
-**WIP:** This is very much a work in progress
-
-### Example
+## Usage
 
 With the following html,
 
@@ -14,19 +13,19 @@ With the following html,
 
 ```html
 <div class='container'>
-  <!--include href='./hello.html' -->
+  <!-- href='include/hello.html' -->
 </div>
 ```
 
-##### ./partials/hello.html
+##### ./include/hello.html
 
 ```html
 <div class='hello'>
-  <!--include href='./world.html' -->
+  <!-- href='world.html' -->
 </div>
 ```
 
-##### ./partials/world.html
+##### ./include/world.html
 
 ```html
 <div class='world'>
@@ -75,7 +74,48 @@ will output:
 </html>
 ```
 
+## Options
+
+### `options.handle`
+
+*Type: `function`*
+
+*Default: `fs.readFile`*
+
+Function used to get a partial. [example][handle-example]
+
+
+### `options.cwd`
+
+*Type: `String`*
+
+*Default: `''`*
+
+Set the current working directory to resolve a partial's path.
+
+
+### `options.noresolve`
+
+*Type: `Boolean`*
+
+*Default: `false`*
+
+Whether or not to use `path.resolve` when looking for a partial.
+
+
+### `options.messages`
+
+*Type: `Boolean`*
+
+*Default: `true`*
+
+Whether to include messages generated when parsing a partial.
+
+
 ## License
 
-MIT © Paul Zimmer
+[MIT][license] © Paul Zimmer
 
+[rehype]: https://github.com/rehypejs/rehype
+[handle-example]: https://github.com/mrzmmr/rehype-partials/tree/master/examples/custom-handle
+[license]: https://github.com/mrzmmr/rehype-partials/blob/master/license
