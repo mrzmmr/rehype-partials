@@ -1,6 +1,6 @@
 {
 	"name": "rehype-partials",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "Partials support for rehype",
 	"main": "index.js",
 	"files": [
