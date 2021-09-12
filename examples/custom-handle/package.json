@@ -7,6 +7,6 @@
     "remark-parse": "^6.0.3",
     "remark-rehype": "^4.0.0",
     "unified": "^7.1.0",
-    "vfile-reporter": "^5.1.1"
+    "vfile-reporter": "^7.0.0"
   }
 }
